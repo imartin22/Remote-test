@@ -12,7 +12,7 @@ Cuando el usuario diga `/update` o pida actualizar los vuelos, ejecuta estos pas
 Ejecuta este comando para disparar la consulta a AviationStack:
 
 ```bash
-curl -s "https://flight-tracker-rust.vercel.app/api/refresh?token=bariloche2026"
+curl -s "https://flight-tracker-rust.vercel.app/api/update?token=bariloche2026"
 ```
 
 Muestra cuántos vuelos se obtuvieron y el timestamp.

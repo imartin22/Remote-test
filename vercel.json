@@ -6,7 +6,7 @@
   ],
   "crons": [
     {
-      "path": "/api/refresh",
+      "path": "/api/update",
       "schedule": "0 */12 * * *"
     }
   ]
