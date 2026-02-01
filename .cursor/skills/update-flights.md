@@ -1,66 +1,54 @@
 ---
 name: update
-description: "Actualiza el estado de vuelos y noticias en producción, lee las noticias y reporta el status"
+description: "Consulta noticias sobre paros y reporta el estado"
 ---
 
-# Flight Tracker Update
+# Flight Tracker Update (Solo Noticias)
 
-Cuando el usuario diga `/update` o pida actualizar los vuelos, ejecuta estos pasos:
+Cuando el usuario diga `/update` o pida actualizar, ejecuta estos pasos:
 
-## 1. Refrescar datos de vuelos en producción
-
-Ejecuta este comando para disparar la consulta a AviationStack:
-
-```bash
-curl -s "https://flight-tracker-rust.vercel.app/api/flights?token=bariloche2026"
-```
-
-Muestra cuántos vuelos se obtuvieron y el timestamp.
-
-## 2. Obtener noticias de paros
-
-Ejecuta este comando para obtener las noticias:
+## 1. Obtener noticias de paros
 
 ```bash
 curl -s "https://flight-tracker-rust.vercel.app/api/news"
 ```
 
-## 3. Leer el contenido de las noticias
+## 2. Analizar las noticias
 
-Para cada una de las 5 noticias más relevantes:
-- Extrae la URL del campo `link`
-- Usa WebFetch o navegación para leer el contenido de cada artículo
-- Resume el contenido en 1-2 oraciones
+Para cada noticia relevante (relevance > 20):
+- Extraer título y fuente
+- Identificar si menciona cancelaciones, demoras o paros
+- Calcular hace cuánto tiempo se publicó
 
-## 4. Reportar al usuario
+## 3. Reportar al usuario
 
-Presenta un resumen con:
+### 📰 Noticias Relevantes
+Lista las 5 noticias más recientes con:
+- Título
+- Fuente
+- Tiempo desde publicación
+- Indicador de urgencia (🔴 alta, 🟡 media, 🟢 baja)
 
-### Estado de Vuelos
-- Lista de vuelos AR1685 y AR1484 con su estado actual
-- Cualquier cambio en estado, delays o gates
-
-### Noticias Relevantes
-- Las 5 noticias con su resumen
-- Indicar si alguna menciona cancelaciones o afectaciones
-
-### Conclusión
-- Si hay riesgo para los vuelos del usuario basado en las noticias
-- Recomendación si es necesario tomar acción
+### ⚠️ Análisis
+- Resumen de la situación actual
+- Si hay riesgo para los vuelos AR1685 y AR1484
+- Recomendación
 
 ## Ejemplo de output
 
 ```
-✈️ ACTUALIZACIÓN DE VUELOS
+📰 ACTUALIZACIÓN DE NOTICIAS
 
-📊 Vuelos monitoreados:
-- AR1685 (BRC→AEP): Programado 15:20 | Gate: 4
-- AR1484 (AEP→TUC): Programado 19:05 | Gate: pendiente
-
-📰 Noticias (5):
-1. "Título..." - Resumen del contenido
-2. "Título..." - Resumen del contenido
+1. 🟡 "ATE postergó el paro en aeropuertos" - Perfil (hace 2h)
+2. 🟡 "Postergan el paro pero habrá demoras" - Infobae (hace 3h)
 ...
 
-⚠️ Análisis: [Hay/No hay] menciones de cancelaciones que afecten tus vuelos.
+⚠️ Análisis:
+El paro fue postergado al 9 de febrero. Mañana 2 de febrero los vuelos operan normal.
+Posibles demoras menores por asambleas.
+
+✅ Recomendación: Tus vuelos deberían operar sin problemas. Llegar con tiempo extra.
 ```
+
+## Nota
+La API de vuelos (AviationStack) agotó su cuota mensual. Solo consultamos noticias.
