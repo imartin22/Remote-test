@@ -130,7 +130,11 @@ function StatusIcon({ status, size = 14 }) {
 function ApiStatus({ status }) {
   if (!status) return null
   
+  // En serverless no tenemos contador, solo mostramos si está conectado
+  const isServerless = typeof status.remainingToday === 'string' || !status.maxDaily
+  
   const getStatusColor = () => {
+    if (isServerless) return status.configured ? '#16a34a' : '#dc2626'
     if (status.remainingToday === 0) return '#dc2626'
     if (status.remainingToday <= 5) return '#d97706'
     return '#16a34a'
@@ -141,10 +145,10 @@ function ApiStatus({ status }) {
       <div 
         className="api-status-badge" 
         style={{ backgroundColor: getStatusColor() }}
-        aria-label={`API calls remaining: ${status.remainingToday} of ${status.maxDaily}`}
+        aria-label={isServerless ? 'API conectada' : `API calls remaining: ${status.remainingToday}`}
       >
-        <RefreshCw size={12} />
-        <span>{status.remainingToday}/{status.maxDaily}</span>
+        <CheckCircle size={12} />
+        <span>{isServerless ? (status.configured ? 'Conectado' : 'Sin API') : `${status.remainingToday}/${status.maxDaily}`}</span>
       </div>
     </div>
   )
@@ -555,7 +559,7 @@ function App() {
   }, [autoRefresh])
   
   const handleForceRefresh = () => {
-    if (apiStatus && apiStatus.remainingToday === 0) {
+    if (apiStatus && typeof apiStatus.remainingToday === 'number' && apiStatus.remainingToday === 0) {
       setError('Límite diario alcanzado')
       return
     }
@@ -583,7 +587,7 @@ function App() {
           <button 
             onClick={handleForceRefresh} 
             className="refresh-btn"
-            disabled={loading || refreshing || (apiStatus && apiStatus.remainingToday === 0)}
+            disabled={loading || refreshing || (apiStatus && typeof apiStatus.remainingToday === 'number' && apiStatus.remainingToday === 0)}
             aria-label="Actualizar datos de vuelos"
           >
             {refreshing ? <Loader2 size={16} className="spinning" /> : <RefreshCw size={16} />}
