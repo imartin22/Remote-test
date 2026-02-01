@@ -95,6 +95,8 @@ async function getFlightsByRoute(depIata, arrIata) {
   return [];
 }
 
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'bariloche2026';
+
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -105,8 +107,17 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
   
-  // Cache largo de 1 hora - solo el cron o comando manual actualiza
-  res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=7200');
+  // Si tiene token válido, es un refresh manual - sin cache
+  const providedToken = req.query?.token || req.headers.authorization?.replace('Bearer ', '');
+  const isManualRefresh = providedToken === ADMIN_TOKEN;
+  
+  if (isManualRefresh) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    console.log('🔄 Manual refresh triggered');
+  } else {
+    // Cache de 1 hora para usuarios normales
+    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=7200');
+  }
   
   try {
     if (!AVIATIONSTACK_KEY) {
@@ -136,6 +147,7 @@ export default async function handler(req, res) {
       routes: ROUTES_TO_MONITOR,
       targetDate: TARGET_DATE,
       lastUpdate: new Date().toISOString(),
+      refreshType: isManualRefresh ? 'manual' : 'cached',
       apiStatus: {
         configured: true,
         remainingToday: 'N/A (serverless)'
