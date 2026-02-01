@@ -726,6 +726,41 @@ svg {
   font-weight: 500;
 }
 
+.next-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--blue-50);
+  color: var(--system-blue);
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.next-refresh svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Reference badge for Despegar times */
+.ref-badge {
+  background: var(--amber-100);
+  color: var(--amber-700);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-left: 4px;
+}
+
+.ref-time {
+  opacity: 0.85;
+}
+
 /* ========== NEWS SECTION ========== */
 .news-section {
   background: var(--bg-primary);

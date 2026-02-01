@@ -21,29 +21,37 @@ import {
 } from 'lucide-react'
 import './App.css'
 
-// Tus vuelos a monitorear
+// Tus vuelos a monitorear (info de Despegar - referencia hasta tener datos reales)
 const YOUR_FLIGHTS = [
   { 
     flight_number: 'AR1685', 
     route: 'BRC → AEP',
     origin: 'BRC',
-    originName: 'Bariloche',
+    originName: 'San Carlos de Bariloche',
     destination: 'AEP',
-    destinationName: 'Aeroparque',
+    destinationName: 'Buenos Aires',
     routeName: 'Bariloche → Aeroparque',
-    date: '2 Feb'
+    date: 'Lun 02 Feb',
+    scheduledDeparture: '15:20',
+    scheduledArrival: '17:25',
+    duration: '2h 05m'
   },
   { 
     flight_number: 'AR1484', 
     route: 'AEP → TUC',
     origin: 'AEP',
-    originName: 'Aeroparque',
+    originName: 'Buenos Aires',
     destination: 'TUC',
-    destinationName: 'Tucumán',
+    destinationName: 'San Miguel de Tucumán',
     routeName: 'Aeroparque → Tucumán',
-    date: '2 Feb'
+    date: 'Lun 02 Feb',
+    scheduledDeparture: '19:05',
+    scheduledArrival: '21:05',
+    duration: '2h 00m'
   }
 ]
+
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000 // 5 minutos
 
 function formatTime(isoString) {
   if (!isoString || isoString === 'N/A') return '-'
@@ -183,8 +191,13 @@ function YourFlightsSection({ flights, apiFlights }) {
               </div>
               <div className="your-flight-details">
                 <span className="flight-detail-item"><Calendar size={14} /> {apiData ? formatDate(apiData.departure?.scheduled) : yourFlight.date}</span>
-                <span>
-                  {apiData ? `${formatTime(apiData.departure?.scheduled)} → ${formatTime(apiData.arrival?.scheduled)}` : 'Horario pendiente'}
+                <span className="flight-detail-item">
+                  <Clock size={14} />
+                  {apiData 
+                    ? `${formatTime(apiData.departure?.scheduled)} → ${formatTime(apiData.arrival?.scheduled)}` 
+                    : `${yourFlight.scheduledDeparture} → ${yourFlight.scheduledArrival}`
+                  }
+                  {!apiData && <span className="ref-badge">ref</span>}
                 </span>
               </div>
             </div>
@@ -224,12 +237,16 @@ function YourFlightsSection({ flights, apiFlights }) {
                           <span className="delay-indicator">+{apiData.departure.delay}min</span>
                         )}
                       </>
-                    ) : '-'}
+                    ) : (
+                      <span className="time ref-time">{yourFlight.scheduledDeparture} <span className="ref-badge">ref</span></span>
+                    )}
                   </td>
                   <td>
                     {apiData ? (
                       <span className="time">{formatTime(apiData.arrival?.scheduled)}</span>
-                    ) : '-'}
+                    ) : (
+                      <span className="time ref-time">{yourFlight.scheduledArrival}</span>
+                    )}
                   </td>
                   <td>
                     <span className={`status-badge status-${statusClass}`}>
@@ -459,6 +476,7 @@ function App() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [apiStatus, setApiStatus] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [nextRefreshIn, setNextRefreshIn] = useState(REFRESH_INTERVAL_MS / 1000)
   
   const [news, setNews] = useState([])
   const [newsLoading, setNewsLoading] = useState(true)
@@ -505,13 +523,24 @@ function App() {
   useEffect(() => {
     fetchFlights()
     fetchNews()
+    setNextRefreshIn(REFRESH_INTERVAL_MS / 1000)
     
     if (autoRefresh) {
-      const flightInterval = setInterval(() => fetchFlights(false), 5 * 60000)
-      const newsInterval = setInterval(fetchNews, 5 * 60000)
+      const flightInterval = setInterval(() => {
+        fetchFlights(false)
+        setNextRefreshIn(REFRESH_INTERVAL_MS / 1000)
+      }, REFRESH_INTERVAL_MS)
+      const newsInterval = setInterval(fetchNews, REFRESH_INTERVAL_MS)
+      
+      // Countdown timer
+      const countdownInterval = setInterval(() => {
+        setNextRefreshIn(prev => prev > 0 ? prev - 1 : REFRESH_INTERVAL_MS / 1000)
+      }, 1000)
+      
       return () => {
         clearInterval(flightInterval)
         clearInterval(newsInterval)
+        clearInterval(countdownInterval)
       }
     }
   }, [autoRefresh])
@@ -597,8 +626,13 @@ function App() {
         
         {lastUpdate && (
           <div className="last-update">
-            Última actualización: {lastUpdate.toLocaleTimeString('es-AR')}
-            {autoRefresh && <span className="auto-badge">Auto-refresh cada 5min</span>}
+            <span>Última actualización: {lastUpdate.toLocaleTimeString('es-AR')}</span>
+            {autoRefresh && (
+              <span className="next-refresh">
+                <Clock size={12} />
+                Próxima en {Math.floor(nextRefreshIn / 60)}:{String(nextRefreshIn % 60).padStart(2, '0')}
+              </span>
+            )}
           </div>
         )}
         
