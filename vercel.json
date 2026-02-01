@@ -5,6 +5,13 @@
   "rewrites": [
     { "source": "/api/flights", "destination": "/api/flights" },
     { "source": "/api/news", "destination": "/api/news" },
+    { "source": "/api/refresh", "destination": "/api/refresh" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/refresh",
+      "schedule": "0 */12 * * *"
+    }
   ]
 }

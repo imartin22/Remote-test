@@ -488,22 +488,16 @@ function App() {
   const [lastUpdate, setLastUpdate] = useState(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [apiStatus, setApiStatus] = useState(null)
-  const [refreshing, setRefreshing] = useState(false)
   const [nextRefreshIn, setNextRefreshIn] = useState(REFRESH_INTERVAL_MS / 1000)
   
   const [news, setNews] = useState([])
   const [newsLoading, setNewsLoading] = useState(true)
 
-  const fetchFlights = async (forceRefresh = false) => {
-    if (forceRefresh) setRefreshing(true)
+  const fetchFlights = async () => {
     try {
-      const url = forceRefresh ? '/api/flights?refresh=true' : '/api/flights'
+      const url = '/api/flights'
       const response = await fetch(url)
       if (!response.ok) {
-        if (response.status === 429) {
-          setError('Límite diario de API alcanzado')
-          return
-        }
         throw new Error('Error al cargar vuelos')
       }
       const data = await response.json()
@@ -515,7 +509,6 @@ function App() {
       setError(err.message)
     } finally {
       setLoading(false)
-      setRefreshing(false)
     }
   }
 
@@ -540,7 +533,7 @@ function App() {
     
     if (autoRefresh) {
       const flightInterval = setInterval(() => {
-        fetchFlights(false)
+        fetchFlights()
         setNextRefreshIn(REFRESH_INTERVAL_MS / 1000)
       }, REFRESH_INTERVAL_MS)
       const newsInterval = setInterval(fetchNews, REFRESH_INTERVAL_MS)
@@ -558,14 +551,6 @@ function App() {
     }
   }, [autoRefresh])
   
-  const handleForceRefresh = () => {
-    if (apiStatus && typeof apiStatus.remainingToday === 'number' && apiStatus.remainingToday === 0) {
-      setError('Límite diario alcanzado')
-      return
-    }
-    fetchFlights(true)
-  }
-
   const brcToAepFlights = flights.filter(f => f.route === 'BRC → AEP')
   const aepToTucFlights = flights.filter(f => f.route === 'AEP → TUC')
 
@@ -584,15 +569,6 @@ function App() {
         </div>
         <div className="header-controls">
           <ApiStatus status={apiStatus} />
-          <button 
-            onClick={handleForceRefresh} 
-            className="refresh-btn"
-            disabled={loading || refreshing || (apiStatus && typeof apiStatus.remainingToday === 'number' && apiStatus.remainingToday === 0)}
-            aria-label="Actualizar datos de vuelos"
-          >
-            {refreshing ? <Loader2 size={16} className="spinning" /> : <RefreshCw size={16} />}
-            <span>{refreshing ? 'Actualizando…' : 'Actualizar'}</span>
-          </button>
           <label className="auto-refresh">
             <input 
               type="checkbox" 

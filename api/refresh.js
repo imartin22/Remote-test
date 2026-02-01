@@ -1,9 +1,10 @@
 /**
- * Vercel Serverless Function - Flight API
- * Consulta AviationStack para vuelos de Aerolíneas Argentinas
+ * Vercel Serverless Function - Manual Refresh (Protected)
+ * Solo accesible con ADMIN_TOKEN o desde Vercel Cron
  */
 
 const AVIATIONSTACK_KEY = process.env.AVIATIONSTACK_KEY;
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'bariloche2026';
 
 const ROUTES_TO_MONITOR = [
   { dep: 'BRC', arr: 'AEP', name: 'Bariloche → Aeroparque' },
@@ -96,26 +97,30 @@ async function getFlightsByRoute(depIata, arrIata) {
 }
 
 export default async function handler(req, res) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  // Verificar autorización
+  const authHeader = req.headers.authorization;
+  const tokenFromQuery = req.query?.token;
+  const cronSecret = req.headers['x-vercel-cron'];
   
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+  const providedToken = authHeader?.replace('Bearer ', '') || tokenFromQuery;
+  
+  // Permitir si: tiene token correcto O es llamada de Vercel Cron
+  if (providedToken !== ADMIN_TOKEN && !cronSecret) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
   
-  // Cache largo de 1 hora - solo el cron o comando manual actualiza
-  res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=7200');
+  // No cachear - siempre consulta fresco
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   
   try {
     if (!AVIATIONSTACK_KEY) {
       return res.status(500).json({ 
         error: 'API key not configured',
-        flights: [],
-        apiStatus: { configured: false }
+        flights: []
       });
     }
+    
+    console.log('🔄 Manual/Cron refresh triggered');
     
     // Obtener vuelos de todas las rutas
     const allFlights = [];
@@ -131,22 +136,20 @@ export default async function handler(req, res) {
       return dateA - dateB;
     });
     
+    console.log(`✅ Fetched ${allFlights.length} flights`);
+    
     return res.status(200).json({
+      success: true,
       flights: allFlights,
-      routes: ROUTES_TO_MONITOR,
-      targetDate: TARGET_DATE,
-      lastUpdate: new Date().toISOString(),
-      apiStatus: {
-        configured: true,
-        remainingToday: 'N/A (serverless)'
-      }
+      count: allFlights.length,
+      timestamp: new Date().toISOString(),
+      source: cronSecret ? 'cron' : 'manual'
     });
     
   } catch (error) {
     console.error('Error:', error);
     return res.status(500).json({ 
       error: 'Error fetching flights',
-      flights: [],
       message: error.message
     });
   }
