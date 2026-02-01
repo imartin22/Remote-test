@@ -650,9 +650,12 @@ async function fetchAllNews() {
   });
   
   // Ordenar por relevancia y fecha
+  // Ordenar por fecha (más nuevas primero), luego por relevancia
   allNews.sort((a, b) => {
-    if (b.relevance !== a.relevance) return b.relevance - a.relevance;
-    return new Date(b.pubDate) - new Date(a.pubDate);
+    const dateA = new Date(a.pubDate);
+    const dateB = new Date(b.pubDate);
+    if (dateB - dateA !== 0) return dateB - dateA;
+    return b.relevance - a.relevance;
   });
   
   // Limitar a las 10 más relevantes
