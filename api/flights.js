@@ -105,8 +105,15 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
   
-  // Cache por 5 minutos en Vercel Edge
-  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+  // Si refresh=true, no usar cache
+  const forceRefresh = req.query?.refresh === 'true';
+  
+  // Cache por 1 minuto, o sin cache si es refresh forzado
+  if (forceRefresh) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  } else {
+    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
+  }
   
   try {
     if (!AVIATIONSTACK_KEY) {
