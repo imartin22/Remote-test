@@ -246,7 +246,7 @@ function YourFlightsSection({ flights, apiFlights }) {
   )
 }
 
-function FlightTable({ flights, routeName, routeEmoji }) {
+function FlightTable({ flights, routeName, routeIcon }) {
   const sectionId = routeName.replace(/\s+/g, '-').toLowerCase()
   if (flights.length === 0) {
     return (
@@ -254,7 +254,7 @@ function FlightTable({ flights, routeName, routeEmoji }) {
         <div className="route-header">
           <h3 id={sectionId} className="route-title">
             <span className="route-icon" aria-hidden="true">
-              {routeEmoji === '🏔️' ? <Mountain size={18} /> : <Sun size={18} />}
+              {routeIcon}
             </span>
             <span>{routeName}</span>
           </h3>
@@ -269,7 +269,8 @@ function FlightTable({ flights, routeName, routeEmoji }) {
     <section className="route-section" aria-labelledby={sectionId}>
       <div className="route-header">
         <h3 id={sectionId} className="route-title">
-          <span aria-hidden="true">{routeEmoji}</span> {routeName}
+          <span className="route-icon" aria-hidden="true">{routeIcon}</span>
+          <span>{routeName}</span>
         </h3>
         <span className="route-count">{flights.length} vuelos</span>
       </div>
@@ -436,7 +437,8 @@ function NewsSection({ news, loading, onRefresh }) {
         <div className="news-loading" role="status" aria-live="polite">Buscando noticias…</div>
       ) : news.length === 0 ? (
         <div className="news-empty">
-          ✅ No hay alertas de paros activas
+          <CheckCircle size={24} />
+          <span>No hay alertas de paros activas</span>
         </div>
       ) : (
         <div className="news-grid">
@@ -527,6 +529,9 @@ function App() {
 
   return (
     <div className="app">
+      <a href="#main-content" className="skip-link">
+        Saltar al contenido principal
+      </a>
       <header className="header">
         <div className="header-content">
           <h1>
@@ -557,10 +562,11 @@ function App() {
         </div>
       </header>
 
-      <main className="main">
+      <main className="main" id="main-content">
         {error && (
-          <div className="error-banner">
-            ⚠️ {error}
+          <div className="error-banner" role="alert">
+            <AlertCircle size={16} />
+            {error}
           </div>
         )}
         
@@ -579,12 +585,12 @@ function App() {
             <FlightTable 
               flights={brcToAepFlights} 
               routeName="Bariloche → Aeroparque" 
-              routeEmoji="🏔️"
+              routeIcon={<Mountain size={18} />}
             />
             <FlightTable 
               flights={aepToTucFlights} 
               routeName="Aeroparque → Tucumán" 
-              routeEmoji="🌄"
+              routeIcon={<Sun size={18} />}
             />
           </>
         )}
@@ -607,8 +613,8 @@ function App() {
         <p>Desarrollado 100% en remoto desde iPad con Cursor Cloud</p>
         <p className="tech-note">
           {flights.length > 0 
-            ? `✅ Conectado a AviationStack • ${flights.length} vuelos monitoreados`
-            : '📋 Esperando datos de vuelos...'
+            ? <><CheckCircle size={14} /> Conectado a AviationStack • {flights.length} vuelos monitoreados</>
+            : <><Loader2 size={14} className="spinning" /> Esperando datos de vuelos…</>
           }
         </p>
       </footer>
