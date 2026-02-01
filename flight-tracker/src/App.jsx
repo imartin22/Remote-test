@@ -144,26 +144,49 @@ function NewsSection({ news, loading, onRefresh }) {
   )
 }
 
-function FlightCard({ flight }) {
+function formatFlightDate(isoString) {
+  if (!isoString) return ''
+  try {
+    const date = new Date(isoString)
+    return date.toLocaleDateString('es-AR', { 
+      weekday: 'short', 
+      day: '2-digit', 
+      month: 'short' 
+    })
+  } catch {
+    return ''
+  }
+}
+
+function FlightCard({ flight, isHighlighted }) {
   if (!flight) return null
   
   const statusColor = getStatusColor(flight.status)
   const statusIcon = getStatusIcon(flight.status)
   
+  // Verificar si es uno de los vuelos objetivo
+  const isTargetFlight = flight.flight_number === 'AR1685' || flight.flight_number === 'AR1484'
+  
   return (
-    <div className="flight-card">
+    <div className={`flight-card ${isHighlighted ? 'highlighted' : ''} ${isTargetFlight ? 'target-flight' : ''}`}>
       <div className="flight-header">
         <div className="flight-number">
           <span className="airline-logo">🇦🇷</span>
           <div>
             <h2>{flight.flight_number}</h2>
             <span className="airline-name">{flight.airline}</span>
+            {isTargetFlight && <span className="your-flight-badge">✨ Tu vuelo</span>}
           </div>
         </div>
         <div className="flight-status" style={{ backgroundColor: statusColor }}>
           <span className="status-icon">{statusIcon}</span>
           <span>{flight.status}</span>
         </div>
+      </div>
+      
+      <div className="flight-date-badge">
+        📅 {formatFlightDate(flight.departure?.scheduled)} 
+        {flight.departure?.delay && <span className="delay-badge">⚠️ +{flight.departure.delay} min</span>}
       </div>
       
       <div className="flight-route">
@@ -370,12 +393,54 @@ function App() {
             <div className="loading-spinner">✈️</div>
             <p>Cargando información de vuelos...</p>
           </div>
-        ) : (
-          <div className="flights-grid">
-            {flights.map(flight => (
-              <FlightCard key={flight.flight_number} flight={flight} />
-            ))}
+        ) : flights.length === 0 ? (
+          <div className="no-flights">
+            <p>📭 No se encontraron vuelos para las rutas monitoreadas.</p>
+            <p>Rutas: BRC → AEP y AEP → TUC</p>
+            <p>Los vuelos de mañana podrían aparecer más tarde.</p>
           </div>
+        ) : (
+          <>
+            {/* Vuelos Bariloche → Aeroparque */}
+            <div className="route-section">
+              <h2 className="route-title">
+                <span>🏔️</span> Bariloche → Aeroparque
+                <span className="route-count">
+                  {flights.filter(f => f.route === 'BRC → AEP').length} vuelos
+                </span>
+              </h2>
+              <div className="flights-grid">
+                {flights
+                  .filter(f => f.route === 'BRC → AEP')
+                  .map(flight => (
+                    <FlightCard key={`${flight.flight_number}-${flight.flight_date}`} flight={flight} />
+                  ))}
+                {flights.filter(f => f.route === 'BRC → AEP').length === 0 && (
+                  <p className="no-route-flights">No hay vuelos cargados aún para esta ruta</p>
+                )}
+              </div>
+            </div>
+            
+            {/* Vuelos Aeroparque → Tucumán */}
+            <div className="route-section">
+              <h2 className="route-title">
+                <span>🌄</span> Aeroparque → Tucumán
+                <span className="route-count">
+                  {flights.filter(f => f.route === 'AEP → TUC').length} vuelos
+                </span>
+              </h2>
+              <div className="flights-grid">
+                {flights
+                  .filter(f => f.route === 'AEP → TUC')
+                  .map(flight => (
+                    <FlightCard key={`${flight.flight_number}-${flight.flight_date}`} flight={flight} />
+                  ))}
+                {flights.filter(f => f.route === 'AEP → TUC').length === 0 && (
+                  <p className="no-route-flights">No hay vuelos cargados aún para esta ruta</p>
+                )}
+              </div>
+            </div>
+          </>
         )}
         
         {lastUpdate && (

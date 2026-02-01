@@ -37,8 +37,8 @@ let lastApiCallDate = new Date().toDateString();
 // Cache de 30 minutos para datos de API real
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutos
 
-// Máximo 4 consultas por día (para no exceder 100/mes)
-const MAX_DAILY_API_CALLS = 4;
+// Uso temporal: 50 llamadas por día (tienes 100/mes y solo usarás 2 días)
+const MAX_DAILY_API_CALLS = 50;
 
 // Estadísticas de uso
 let apiStats = {
@@ -212,73 +212,145 @@ function mapStatus(status) {
   return statusMap[status?.toLowerCase()] || status || 'Desconocido';
 }
 
+// ============== CONFIGURACIÓN DE RUTAS A MONITOREAR ==============
+const ROUTES_TO_MONITOR = [
+  { dep: 'BRC', arr: 'AEP', name: 'Bariloche → Aeroparque' },
+  { dep: 'AEP', arr: 'TUC', name: 'Aeroparque → Tucumán' }
+];
+
+const TARGET_DATE = '2026-02-02'; // Fecha de los vuelos a monitorear
+const AIRLINE = 'AR'; // Aerolíneas Argentinas
+
 /**
- * Genera datos simulados para demo (cuando no hay API key)
+ * Obtiene todos los vuelos de una ruta desde AviationStack
  */
-function getSimulatedFlight(flightNumber) {
-  const now = new Date();
-  const flights = {
-    'AR1685': {
-      flight_number: 'AR1685',
-      airline: 'Aerolíneas Argentinas',
-      status: 'En vuelo',
-      departure: {
-        airport: 'EZE',
-        city: 'Buenos Aires - Ezeiza',
-        scheduled: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
-        estimated: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
-        actual: new Date(now.getTime() - 1.9 * 60 * 60 * 1000).toISOString(),
-        terminal: 'A',
-        gate: '12'
+async function getFlightsByRoute(depIata, arrIata) {
+  if (!AVIATIONSTACK_KEY) return [];
+  
+  try {
+    const response = await axios.get('http://api.aviationstack.com/v1/flights', {
+      params: {
+        access_key: AVIATIONSTACK_KEY,
+        dep_iata: depIata,
+        arr_iata: arrIata,
+        airline_iata: AIRLINE,
+        limit: 50
       },
-      arrival: {
-        airport: 'MIA',
-        city: 'Miami International',
-        scheduled: new Date(now.getTime() + 6 * 60 * 60 * 1000).toISOString(),
-        estimated: new Date(now.getTime() + 5.8 * 60 * 60 * 1000).toISOString(),
-        actual: null,
-        terminal: 'N',
-        gate: '42'
-      },
-      aircraft: 'Boeing 737-800',
-      live: {
-        latitude: -15.5,
-        longitude: -47.8,
-        altitude: 35000,
-        speed: 890,
-        heading: 340
-      },
-      source: 'demo'
-    },
-    'AR1484': {
-      flight_number: 'AR1484',
-      airline: 'Aerolíneas Argentinas',
-      status: 'Programado',
-      departure: {
-        airport: 'AEP',
-        city: 'Buenos Aires - Aeroparque',
-        scheduled: new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString(),
-        estimated: new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString(),
-        actual: null,
-        terminal: 'A',
-        gate: '5'
-      },
-      arrival: {
-        airport: 'COR',
-        city: 'Córdoba - Pajas Blancas',
-        scheduled: new Date(now.getTime() + 4.5 * 60 * 60 * 1000).toISOString(),
-        estimated: new Date(now.getTime() + 4.5 * 60 * 60 * 1000).toISOString(),
-        actual: null,
-        terminal: '-',
-        gate: '-'
-      },
-      aircraft: 'Embraer E190',
-      live: null,
-      source: 'demo'
+      timeout: 15000
+    });
+    
+    registerApiCall();
+    
+    if (response.data && response.data.data) {
+      return response.data.data
+        .filter(f => {
+          // Filtrar por fecha (hoy y mañana)
+          const flightDate = f.flight_date;
+          const today = new Date().toISOString().split('T')[0];
+          const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+          return flightDate === today || flightDate === tomorrow || flightDate === TARGET_DATE;
+        })
+        .map(f => ({
+          flight_number: f.flight.iata,
+          airline: f.airline?.name || 'Aerolíneas Argentinas',
+          status: mapStatus(f.flight_status),
+          flight_date: f.flight_date,
+          departure: {
+            airport: f.departure?.iata || depIata,
+            city: f.departure?.airport || depIata,
+            scheduled: f.departure?.scheduled || null,
+            estimated: f.departure?.estimated || f.departure?.scheduled || null,
+            actual: f.departure?.actual || null,
+            delay: f.departure?.delay || null,
+            terminal: f.departure?.terminal || '-',
+            gate: f.departure?.gate || '-'
+          },
+          arrival: {
+            airport: f.arrival?.iata || arrIata,
+            city: f.arrival?.airport || arrIata,
+            scheduled: f.arrival?.scheduled || null,
+            estimated: f.arrival?.estimated || f.arrival?.scheduled || null,
+            actual: f.arrival?.actual || null,
+            delay: f.arrival?.delay || null,
+            terminal: f.arrival?.terminal || '-',
+            gate: f.arrival?.gate || '-'
+          },
+          aircraft: f.aircraft?.iata || f.aircraft?.icao || 'N/A',
+          live: f.live ? {
+            latitude: f.live.latitude,
+            longitude: f.live.longitude,
+            altitude: f.live.altitude,
+            speed: f.live.speed_horizontal,
+            heading: f.live.direction
+          } : null,
+          source: 'aviationstack',
+          route: `${depIata} → ${arrIata}`
+        }));
     }
+  } catch (error) {
+    console.error(`Error fetching route ${depIata}-${arrIata}:`, error.message);
+  }
+  return [];
+}
+
+/**
+ * Obtiene todos los vuelos de todas las rutas monitoreadas
+ */
+async function getAllRouteFlights(forceRefresh = false) {
+  const now = Date.now();
+  const cacheKey = 'all_routes';
+  
+  // Verificar cache
+  if (!forceRefresh && flightCache[cacheKey]) {
+    const cacheAge = now - flightCache[cacheKey].timestamp;
+    if (cacheAge < CACHE_DURATION) {
+      console.log(`📦 Cache hit for routes (age: ${Math.round(cacheAge/1000)}s)`);
+      return {
+        flights: flightCache[cacheKey].data,
+        fromCache: true,
+        cacheAge: Math.round(cacheAge / 1000)
+      };
+    }
+  }
+  
+  // Verificar si podemos hacer llamadas a la API
+  if (!canMakeApiCall()) {
+    console.log('⚠️ Daily API limit reached');
+    if (flightCache[cacheKey]) {
+      return {
+        flights: flightCache[cacheKey].data,
+        fromCache: true,
+        limitReached: true
+      };
+    }
+    return { flights: [], limitReached: true };
+  }
+  
+  console.log('🔄 Fetching flights from API...');
+  
+  // Obtener vuelos de todas las rutas
+  const allFlights = [];
+  for (const route of ROUTES_TO_MONITOR) {
+    const flights = await getFlightsByRoute(route.dep, route.arr);
+    allFlights.push(...flights);
+  }
+  
+  // Ordenar por fecha y hora de salida
+  allFlights.sort((a, b) => {
+    const dateA = new Date(a.departure.scheduled || 0);
+    const dateB = new Date(b.departure.scheduled || 0);
+    return dateA - dateB;
+  });
+  
+  // Guardar en cache
+  flightCache[cacheKey] = {
+    data: allFlights,
+    timestamp: now
   };
   
-  return flights[flightNumber] || null;
+  console.log(`✅ Cached ${allFlights.length} flights from ${ROUTES_TO_MONITOR.length} routes`);
+  
+  return { flights: allFlights, fromCache: false };
 }
 
 /**
@@ -338,29 +410,28 @@ async function getFlightInfo(flightNumber, forceRefresh = false) {
 // API Endpoints
 app.get('/api/flights', async (req, res) => {
   const forceRefresh = req.query.refresh === 'true';
-  const now = Date.now();
   
   try {
-    const flightNumbers = ['AR1685', 'AR1484'];
-    const flights = await Promise.all(
-      flightNumbers.map(fn => getFlightInfo(fn, forceRefresh))
-    );
+    const result = await getAllRouteFlights(forceRefresh);
     
-    // Actualizar lastUpdate solo si obtuvimos datos frescos
-    const hasRealData = flights.some(f => f && f.source !== 'demo' && !f.fromCache);
-    if (hasRealData) {
-      lastUpdate = now;
+    if (!result.fromCache && result.flights.length > 0) {
+      lastUpdate = Date.now();
     }
     
     res.json({
-      flights: flights.filter(Boolean),
+      flights: result.flights,
+      routes: ROUTES_TO_MONITOR,
+      targetDate: TARGET_DATE,
       lastUpdate: lastUpdate ? new Date(lastUpdate).toISOString() : null,
+      fromCache: result.fromCache || false,
+      cacheAge: result.cacheAge || null,
       apiStatus: {
         callsToday: apiCallsToday,
         maxDaily: MAX_DAILY_API_CALLS,
         remainingToday: MAX_DAILY_API_CALLS - apiCallsToday,
         cacheDuration: CACHE_DURATION / 60000 + ' minutos',
-        canRefresh: canMakeApiCall()
+        canRefresh: canMakeApiCall(),
+        limitReached: result.limitReached || false
       }
     });
   } catch (error) {
@@ -369,7 +440,7 @@ app.get('/api/flights', async (req, res) => {
   }
 });
 
-// Endpoint para forzar refresh (usa una llamada de API)
+// Endpoint para forzar refresh (usa llamadas de API)
 app.get('/api/flights/refresh', async (req, res) => {
   if (!canMakeApiCall()) {
     return res.status(429).json({ 
@@ -380,17 +451,14 @@ app.get('/api/flights/refresh', async (req, res) => {
   }
   
   try {
-    const flightNumbers = ['AR1685', 'AR1484'];
-    const flights = await Promise.all(
-      flightNumbers.map(fn => getFlightInfo(fn, true))
-    );
-    
+    const result = await getAllRouteFlights(true);
     lastUpdate = Date.now();
     
     res.json({
-      flights: flights.filter(Boolean),
+      flights: result.flights,
+      routes: ROUTES_TO_MONITOR,
       lastUpdate: new Date(lastUpdate).toISOString(),
-      message: 'Datos actualizados desde API',
+      message: `Datos actualizados: ${result.flights.length} vuelos encontrados`,
       apiStatus: {
         callsToday: apiCallsToday,
         remainingToday: MAX_DAILY_API_CALLS - apiCallsToday
