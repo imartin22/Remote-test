@@ -115,7 +115,6 @@ function ApiStatus({ status }) {
 }
 
 function YourFlightsSection({ flights, apiFlights }) {
-  // Buscar si tus vuelos aparecen en los datos de la API
   const getFlightData = (flightNumber) => {
     return apiFlights.find(f => f.flight_number === flightNumber)
   }
@@ -123,6 +122,45 @@ function YourFlightsSection({ flights, apiFlights }) {
   return (
     <section className="your-flights-section" aria-labelledby="your-flights-heading">
       <h2 id="your-flights-heading" className="your-flights-header">✨ Tus Vuelos</h2>
+      
+      {/* Mobile: Cards */}
+      <div className="your-flights-cards">
+        {flights.map(yourFlight => {
+          const apiData = getFlightData(yourFlight.flight_number)
+          const status = apiData ? apiData.status : 'Sin información'
+          const statusClass = getStatusClass(status)
+          
+          return (
+            <div key={yourFlight.flight_number} className="your-flight-card">
+              <div className="your-flight-card-header">
+                <span className="your-flight-number">{yourFlight.flight_number}</span>
+                <span className={`status-badge status-${statusClass}`}>
+                  {getStatusIcon(status)} {status}
+                </span>
+              </div>
+              <div className="your-flight-route">
+                <div className="your-flight-airport">
+                  <div className="your-flight-airport-code">{yourFlight.origin}</div>
+                  <div className="your-flight-airport-name">{yourFlight.originName}</div>
+                </div>
+                <span className="your-flight-arrow" aria-hidden="true">→</span>
+                <div className="your-flight-airport">
+                  <div className="your-flight-airport-code">{yourFlight.destination}</div>
+                  <div className="your-flight-airport-name">{yourFlight.destinationName}</div>
+                </div>
+              </div>
+              <div className="your-flight-details">
+                <span>📅 {apiData ? formatDate(apiData.departure?.scheduled) : yourFlight.date}</span>
+                <span>
+                  {apiData ? `${formatTime(apiData.departure?.scheduled)} → ${formatTime(apiData.arrival?.scheduled)}` : 'Horario pendiente'}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      
+      {/* Desktop: Table */}
       <div className="table-wrapper">
         <table className="your-flights-table">
           <thead>
@@ -169,7 +207,7 @@ function YourFlightsSection({ flights, apiFlights }) {
                 </tr>
               )
             })}
-            </tbody>
+          </tbody>
         </table>
       </div>
     </section>
@@ -200,6 +238,53 @@ function FlightTable({ flights, routeName, routeEmoji }) {
         </h3>
         <span className="route-count">{flights.length} vuelos</span>
       </div>
+      
+      {/* Mobile: Cards */}
+      <div className="flight-cards">
+        {flights.map((flight, index) => {
+          const statusClass = getStatusClass(flight.status)
+          const isYourFlight = YOUR_FLIGHTS.some(yf => yf.flight_number === flight.flight_number)
+          
+          return (
+            <div 
+              key={`card-${flight.flight_number}-${index}`} 
+              className="flight-card"
+              style={isYourFlight ? { borderColor: 'var(--blue-500)', borderWidth: '2px' } : {}}
+            >
+              <div className="flight-card-header">
+                <div>
+                  <span className="flight-card-number">{flight.flight_number}</span>
+                  {isYourFlight && <span className="your-flight-tag">Tu vuelo</span>}
+                </div>
+                <span className={`status-badge status-${statusClass}`}>
+                  {getStatusIcon(flight.status)} {flight.status}
+                </span>
+              </div>
+              <div className="flight-card-route">
+                <div className="flight-card-airport">
+                  <div className="flight-card-airport-code">{flight.departure?.airport}</div>
+                  <div className="flight-card-airport-time">{formatTime(flight.departure?.scheduled)}</div>
+                  <div className="flight-card-airport-name">{flight.departure?.city?.split(' ')[0] || ''}</div>
+                </div>
+                <span className="flight-card-arrow" aria-hidden="true">✈</span>
+                <div className="flight-card-airport arrival">
+                  <div className="flight-card-airport-code">{flight.arrival?.airport}</div>
+                  <div className="flight-card-airport-time">{formatTime(flight.arrival?.scheduled)}</div>
+                  <div className="flight-card-airport-name">{flight.arrival?.city?.split(' ')[0] || ''}</div>
+                </div>
+              </div>
+              <div className="flight-card-footer">
+                <span>{formatDate(flight.departure?.scheduled)}</span>
+                {flight.departure?.delay && (
+                  <span className="delay-indicator">+{flight.departure.delay}min delay</span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      
+      {/* Desktop: Table */}
       <div className="table-wrapper">
         <table className="flight-table">
           <thead>
@@ -219,10 +304,10 @@ function FlightTable({ flights, routeName, routeEmoji }) {
               const isYourFlight = YOUR_FLIGHTS.some(yf => yf.flight_number === flight.flight_number)
               
               return (
-                <tr key={`${flight.flight_number}-${index}`} style={isYourFlight ? { background: '#eff6ff' } : {}}>
+                <tr key={`row-${flight.flight_number}-${index}`} style={isYourFlight ? { background: '#eff6ff' } : {}}>
                   <td>
                     <span className="flight-number">{flight.flight_number}</span>
-                    {isYourFlight && <span className="delay-indicator" style={{ background: '#dbeafe', color: '#1d4ed8', marginLeft: '8px' }}>Tu vuelo</span>}
+                    {isYourFlight && <span className="your-flight-tag">Tu vuelo</span>}
                   </td>
                   <td>{formatDate(flight.departure?.scheduled)}</td>
                   <td>
@@ -267,23 +352,25 @@ function NewsCard({ news }) {
   }
   
   const getRelevanceLabel = (relevance) => {
-    if (relevance >= 20) return '🚨 Urgente'
-    if (relevance >= 10) return '⚠️ Alerta'
-    return '📰 Info'
+    if (relevance >= 20) return '🚨'
+    if (relevance >= 10) return '⚠️'
+    return '📰'
   }
   
   return (
     <a href={news.link} target="_blank" rel="noopener noreferrer" className="news-card">
-      <div className="news-header">
-        <span className="news-relevance" style={{ backgroundColor: getRelevanceColor(news.relevance) }}>
+      <div className="news-card-header">
+        <span 
+          className="news-relevance" 
+          style={{ backgroundColor: getRelevanceColor(news.relevance) }}
+          aria-label={news.relevance >= 20 ? 'Urgente' : news.relevance >= 10 ? 'Alerta' : 'Información'}
+        >
           {getRelevanceLabel(news.relevance)}
         </span>
         <span className="news-time">{formatRelativeTime(news.pubDate)}</span>
       </div>
-      <div className="news-content">
-        <h3 className="news-title">{news.title}</h3>
-        <span className="news-source">{news.source}</span>
-      </div>
+      <h3 className="news-title">{news.title}</h3>
+      <span className="news-source">{news.source}</span>
     </a>
   )
 }
