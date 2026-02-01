@@ -246,6 +246,37 @@ body {
   50% { opacity: 0.6; transform: scale(1.1); }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+/* Icon alignment */
+.status-badge svg,
+.refresh-btn svg,
+.api-status-badge svg,
+.your-flights-header svg,
+.route-title svg,
+.section-icon svg,
+.flight-detail-item svg {
+  flex-shrink: 0;
+}
+
+.flight-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.route-icon {
+  display: flex;
+  align-items: center;
+}
+
 /* ========== YOUR FLIGHTS - Card Style for Mobile ========== */
 .your-flights-section {
   background: var(--bg-primary);

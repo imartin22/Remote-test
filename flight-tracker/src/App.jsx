@@ -1,4 +1,24 @@
 import { useState, useEffect } from 'react'
+import { 
+  Plane, 
+  PlaneTakeoff, 
+  PlaneLanding, 
+  Clock, 
+  AlertCircle, 
+  XCircle, 
+  HelpCircle,
+  RefreshCw,
+  CheckCircle,
+  Calendar,
+  ArrowRight,
+  Mountain,
+  Sun,
+  Newspaper,
+  AlertTriangle,
+  Info,
+  Sparkles,
+  Loader2
+} from 'lucide-react'
 import './App.css'
 
 // Tus vuelos a monitorear
@@ -78,18 +98,25 @@ function getStatusClass(status) {
   return statusMap[status] || 'unknown'
 }
 
-function getStatusIcon(status) {
-  const icons = {
-    'Programado': '🕐',
-    'En vuelo': '✈️',
-    'Activo': '✈️',
-    'Aterrizó': '🛬',
-    'Llegó': '✅',
-    'Demorado': '⏳',
-    'Cancelado': '❌',
-    'Sin información': '❓'
+function StatusIcon({ status, size = 14 }) {
+  const iconProps = { size, strokeWidth: 2.5 }
+  
+  switch (status) {
+    case 'Programado':
+      return <Clock {...iconProps} />
+    case 'En vuelo':
+    case 'Activo':
+      return <Plane {...iconProps} />
+    case 'Aterrizó':
+    case 'Llegó':
+      return <PlaneLanding {...iconProps} />
+    case 'Demorado':
+      return <AlertCircle {...iconProps} />
+    case 'Cancelado':
+      return <XCircle {...iconProps} />
+    default:
+      return <HelpCircle {...iconProps} />
   }
-  return icons[status] || '❓'
 }
 
 function ApiStatus({ status }) {
@@ -108,7 +135,8 @@ function ApiStatus({ status }) {
         style={{ backgroundColor: getStatusColor() }}
         aria-label={`API calls remaining: ${status.remainingToday} of ${status.maxDaily}`}
       >
-        API: {status.remainingToday}/{status.maxDaily}
+        <RefreshCw size={12} />
+        <span>{status.remainingToday}/{status.maxDaily}</span>
       </div>
     </div>
   )
@@ -121,7 +149,10 @@ function YourFlightsSection({ flights, apiFlights }) {
   
   return (
     <section className="your-flights-section" aria-labelledby="your-flights-heading">
-      <h2 id="your-flights-heading" className="your-flights-header">✨ Tus Vuelos</h2>
+      <h2 id="your-flights-heading" className="your-flights-header">
+        <Sparkles size={18} />
+        <span>Tus Vuelos</span>
+      </h2>
       
       {/* Mobile: Cards */}
       <div className="your-flights-cards">
@@ -135,7 +166,8 @@ function YourFlightsSection({ flights, apiFlights }) {
               <div className="your-flight-card-header">
                 <span className="your-flight-number">{yourFlight.flight_number}</span>
                 <span className={`status-badge status-${statusClass}`}>
-                  {getStatusIcon(status)} {status}
+                  <StatusIcon status={status} />
+                  <span>{status}</span>
                 </span>
               </div>
               <div className="your-flight-route">
@@ -143,14 +175,14 @@ function YourFlightsSection({ flights, apiFlights }) {
                   <div className="your-flight-airport-code">{yourFlight.origin}</div>
                   <div className="your-flight-airport-name">{yourFlight.originName}</div>
                 </div>
-                <span className="your-flight-arrow" aria-hidden="true">→</span>
+                <span className="your-flight-arrow" aria-hidden="true"><ArrowRight size={16} /></span>
                 <div className="your-flight-airport">
                   <div className="your-flight-airport-code">{yourFlight.destination}</div>
                   <div className="your-flight-airport-name">{yourFlight.destinationName}</div>
                 </div>
               </div>
               <div className="your-flight-details">
-                <span>📅 {apiData ? formatDate(apiData.departure?.scheduled) : yourFlight.date}</span>
+                <span className="flight-detail-item"><Calendar size={14} /> {apiData ? formatDate(apiData.departure?.scheduled) : yourFlight.date}</span>
                 <span>
                   {apiData ? `${formatTime(apiData.departure?.scheduled)} → ${formatTime(apiData.arrival?.scheduled)}` : 'Horario pendiente'}
                 </span>
@@ -201,7 +233,7 @@ function YourFlightsSection({ flights, apiFlights }) {
                   </td>
                   <td>
                     <span className={`status-badge status-${statusClass}`}>
-                      {getStatusIcon(status)} {status}
+                      <StatusIcon status={status} /> {status}
                     </span>
                   </td>
                 </tr>
@@ -221,7 +253,10 @@ function FlightTable({ flights, routeName, routeEmoji }) {
       <section className="route-section" aria-labelledby={sectionId}>
         <div className="route-header">
           <h3 id={sectionId} className="route-title">
-            <span aria-hidden="true">{routeEmoji}</span> {routeName}
+            <span className="route-icon" aria-hidden="true">
+              {routeEmoji === '🏔️' ? <Mountain size={18} /> : <Sun size={18} />}
+            </span>
+            <span>{routeName}</span>
           </h3>
           <span className="route-count">0 vuelos</span>
         </div>
@@ -257,7 +292,7 @@ function FlightTable({ flights, routeName, routeEmoji }) {
                   {isYourFlight && <span className="your-flight-tag">Tu vuelo</span>}
                 </div>
                 <span className={`status-badge status-${statusClass}`}>
-                  {getStatusIcon(flight.status)} {flight.status}
+                  <StatusIcon status={flight.status} /> {flight.status}
                 </span>
               </div>
               <div className="flight-card-route">
@@ -266,7 +301,7 @@ function FlightTable({ flights, routeName, routeEmoji }) {
                   <div className="flight-card-airport-time">{formatTime(flight.departure?.scheduled)}</div>
                   <div className="flight-card-airport-name">{flight.departure?.city?.split(' ')[0] || ''}</div>
                 </div>
-                <span className="flight-card-arrow" aria-hidden="true">✈</span>
+                <span className="flight-card-arrow" aria-hidden="true"><Plane size={20} /></span>
                 <div className="flight-card-airport arrival">
                   <div className="flight-card-airport-code">{flight.arrival?.airport}</div>
                   <div className="flight-card-airport-time">{formatTime(flight.arrival?.scheduled)}</div>
@@ -329,7 +364,7 @@ function FlightTable({ flights, routeName, routeEmoji }) {
                   </td>
                   <td>
                     <span className={`status-badge status-${statusClass}`}>
-                      {getStatusIcon(flight.status)} {flight.status}
+                      <StatusIcon status={flight.status} /> {flight.status}
                     </span>
                   </td>
                 </tr>
@@ -351,10 +386,10 @@ function NewsCard({ news }) {
     return '#64748b'
   }
   
-  const getRelevanceLabel = (relevance) => {
-    if (relevance >= 20) return '🚨'
-    if (relevance >= 10) return '⚠️'
-    return '📰'
+  const RelevanceIcon = ({ relevance }) => {
+    if (relevance >= 20) return <AlertCircle size={12} />
+    if (relevance >= 10) return <AlertTriangle size={12} />
+    return <Info size={12} />
   }
   
   return (
@@ -365,7 +400,7 @@ function NewsCard({ news }) {
           style={{ backgroundColor: getRelevanceColor(news.relevance) }}
           aria-label={news.relevance >= 20 ? 'Urgente' : news.relevance >= 10 ? 'Alerta' : 'Información'}
         >
-          {getRelevanceLabel(news.relevance)}
+          <RelevanceIcon relevance={news.relevance} />
         </span>
         <span className="news-time">{formatRelativeTime(news.pubDate)}</span>
       </div>
@@ -380,7 +415,7 @@ function NewsSection({ news, loading, onRefresh }) {
     <div className="news-section">
       <div className="news-section-header">
         <h2>
-          <span className="section-icon" aria-hidden="true">📢</span>
+          <span className="section-icon" aria-hidden="true"><AlertTriangle size={18} /></span>
           Alertas de Paros
         </h2>
         <button 
@@ -389,7 +424,7 @@ function NewsSection({ news, loading, onRefresh }) {
           disabled={loading}
           aria-label="Actualizar noticias"
         >
-          {loading ? '⏳' : '🔄'}
+          {loading ? <Loader2 size={18} className="spinning" /> : <RefreshCw size={18} />}
         </button>
       </div>
       
@@ -495,7 +530,7 @@ function App() {
       <header className="header">
         <div className="header-content">
           <h1>
-            <span className="header-icon">✈️</span>
+            <span className="header-icon"><PlaneTakeoff size={22} /></span>
             Flight Tracker
           </h1>
           <p className="subtitle">Aerolíneas Argentinas • 2 de Febrero 2026</p>
@@ -508,7 +543,8 @@ function App() {
             disabled={loading || refreshing || (apiStatus && apiStatus.remainingToday === 0)}
             aria-label="Actualizar datos de vuelos"
           >
-            {refreshing ? '⏳ Actualizando…' : '🔄 Actualizar'}
+            {refreshing ? <Loader2 size={16} className="spinning" /> : <RefreshCw size={16} />}
+            <span>{refreshing ? 'Actualizando…' : 'Actualizar'}</span>
           </button>
           <label className="auto-refresh">
             <input 
@@ -533,7 +569,9 @@ function App() {
         
         {loading && flights.length === 0 ? (
           <div className="loading" role="status" aria-live="polite">
-            <div className="loading-spinner" aria-hidden="true">✈️</div>
+            <div className="loading-spinner" aria-hidden="true">
+              <Plane size={40} />
+            </div>
             <p>Cargando información de vuelos…</p>
           </div>
         ) : (
