@@ -1,74 +1,16 @@
-# Remote-test
+# React + Vite
 
-Repositorio de demostración para trabajar **100% remoto** sin necesidad de una PC local.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## ¿Cómo funciona?
+Currently, two official plugins are available:
 
-Este proyecto demuestra que puedes:
-1. Escribir código
-2. Ejecutar pruebas
-3. Ver resultados de cobertura
-4. Hacer commits y push
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-**Todo desde el entorno cloud de Cursor, sin necesidad de una máquina local.**
+## React Compiler
 
-## Estructura del Proyecto
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-```
-/workspace/
-├── src/
-│   └── calculator.py    # Módulo de calculadora simple
-├── tests/
-│   └── test_calculator.py  # Tests con pytest
-├── requirements.txt     # Dependencias
-└── README.md
-```
+## Expanding the ESLint configuration
 
-## Ejecutar Pruebas
-
-### Instalar dependencias
-```bash
-pip install -r requirements.txt
-```
-
-### Ejecutar tests
-```bash
-python3 -m pytest tests/ -v
-```
-
-### Ejecutar tests con cobertura
-```bash
-python3 -m pytest tests/ -v --cov=src --cov-report=term-missing
-```
-
-## Resultados de las Pruebas
-
-Al ejecutar las pruebas en el entorno remoto, obtenemos:
-
-```
-============================= test session starts ==============================
-platform linux -- Python 3.12.3, pytest-9.0.2
-
-tests/test_calculator.py::TestAdd::test_add_positive_numbers PASSED
-tests/test_calculator.py::TestAdd::test_add_negative_numbers PASSED
-tests/test_calculator.py::TestAdd::test_add_mixed_numbers PASSED
-tests/test_calculator.py::TestAdd::test_add_floats PASSED
-tests/test_calculator.py::TestSubtract::test_subtract_positive_numbers PASSED
-tests/test_calculator.py::TestSubtract::test_subtract_negative_result PASSED
-tests/test_calculator.py::TestMultiply::test_multiply_positive_numbers PASSED
-tests/test_calculator.py::TestMultiply::test_multiply_by_zero PASSED
-tests/test_calculator.py::TestMultiply::test_multiply_negative_numbers PASSED
-tests/test_calculator.py::TestDivide::test_divide_positive_numbers PASSED
-tests/test_calculator.py::TestDivide::test_divide_floats PASSED
-tests/test_calculator.py::TestDivide::test_divide_by_zero_raises_error PASSED
-
-============================== 12 passed ======================================
-Coverage: 100%
-```
-
-## Ventajas del Desarrollo 100% Remoto
-
-- **Sin configuración local**: No necesitas instalar Python, pip, ni dependencias en tu máquina
-- **Entorno consistente**: El mismo entorno para todos los desarrolladores
-- **Acceso desde cualquier lugar**: Solo necesitas un navegador
-- **Recursos de cloud**: Aprovecha la potencia del servidor remoto
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
