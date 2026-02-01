@@ -21,14 +21,65 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Configuración de APIs (puedes agregar tu API key aquí)
-const AVIATIONSTACK_KEY = process.env.AVIATIONSTACK_KEY || '';
+// Configuración de APIs
+const AVIATIONSTACK_KEY = process.env.AVIATIONSTACK_KEY || '50dc6b7b80c96d901a18fd169ebf32c0';
 const AIRLABS_KEY = process.env.AIRLABS_KEY || '';
 
-// Cache para no exceder límites de API
+// ============== SISTEMA DE CACHE INTELIGENTE ==============
+// Con 100 consultas/mes, necesitamos ~3 consultas/día máximo
+// Estrategia: Cache de 30 minutos + límite diario de consultas
+
 let flightCache = {};
 let lastUpdate = null;
-const CACHE_DURATION = 60000; // 1 minuto
+let apiCallsToday = 0;
+let lastApiCallDate = new Date().toDateString();
+
+// Cache de 30 minutos para datos de API real
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutos
+
+// Máximo 4 consultas por día (para no exceder 100/mes)
+const MAX_DAILY_API_CALLS = 4;
+
+// Estadísticas de uso
+let apiStats = {
+  totalCalls: 0,
+  lastReset: new Date().toISOString(),
+  callHistory: []
+};
+
+/**
+ * Verifica si podemos hacer una llamada a la API
+ */
+function canMakeApiCall() {
+  const today = new Date().toDateString();
+  
+  // Reset contador si es un nuevo día
+  if (lastApiCallDate !== today) {
+    apiCallsToday = 0;
+    lastApiCallDate = today;
+  }
+  
+  return apiCallsToday < MAX_DAILY_API_CALLS;
+}
+
+/**
+ * Registra una llamada a la API
+ */
+function registerApiCall() {
+  apiCallsToday++;
+  apiStats.totalCalls++;
+  apiStats.callHistory.push({
+    timestamp: new Date().toISOString(),
+    remaining: MAX_DAILY_API_CALLS - apiCallsToday
+  });
+  
+  // Mantener solo últimas 50 entradas
+  if (apiStats.callHistory.length > 50) {
+    apiStats.callHistory = apiStats.callHistory.slice(-50);
+  }
+  
+  console.log(`📊 API Call #${apiStats.totalCalls} - Remaining today: ${MAX_DAILY_API_CALLS - apiCallsToday}/${MAX_DAILY_API_CALLS}`);
+}
 
 /**
  * Obtiene datos de vuelo desde AirLabs API (tiene plan gratis)
@@ -231,18 +282,54 @@ function getSimulatedFlight(flightNumber) {
 }
 
 /**
- * Obtiene información de un vuelo
+ * Obtiene información de un vuelo (con cache inteligente)
  */
-async function getFlightInfo(flightNumber) {
-  // Intentar APIs reales primero
-  let flight = await getFlightFromAirLabs(flightNumber);
-  if (!flight) {
-    flight = await getFlightFromAviationStack(flightNumber);
+async function getFlightInfo(flightNumber, forceRefresh = false) {
+  // Verificar cache primero
+  const cached = flightCache[flightNumber];
+  const now = Date.now();
+  
+  if (cached && !forceRefresh) {
+    const cacheAge = now - cached.timestamp;
+    if (cacheAge < CACHE_DURATION) {
+      console.log(`📦 Cache hit for ${flightNumber} (age: ${Math.round(cacheAge/1000)}s)`);
+      return { ...cached.data, fromCache: true, cacheAge: Math.round(cacheAge/1000) };
+    }
   }
   
-  // Si no hay APIs configuradas, usar datos simulados
+  // Si no podemos hacer llamadas a la API, usar cache viejo o simulado
+  if (!canMakeApiCall() && !forceRefresh) {
+    console.log(`⚠️ Daily API limit reached, using cached/simulated data for ${flightNumber}`);
+    if (cached) {
+      return { ...cached.data, fromCache: true, limitReached: true };
+    }
+    return { ...getSimulatedFlight(flightNumber), limitReached: true };
+  }
+  
+  // Intentar APIs reales
+  let flight = null;
+  
+  if (AIRLABS_KEY) {
+    flight = await getFlightFromAirLabs(flightNumber);
+  }
+  
+  if (!flight && AVIATIONSTACK_KEY) {
+    flight = await getFlightFromAviationStack(flightNumber);
+    if (flight) {
+      registerApiCall(); // Solo contar llamadas exitosas a AviationStack
+    }
+  }
+  
+  // Si no hay datos de API, usar simulados
   if (!flight) {
     flight = getSimulatedFlight(flightNumber);
+  } else {
+    // Guardar en cache
+    flightCache[flightNumber] = {
+      data: flight,
+      timestamp: now
+    };
+    console.log(`✅ Cached ${flightNumber} from ${flight.source}`);
   }
   
   return flight;
@@ -250,38 +337,92 @@ async function getFlightInfo(flightNumber) {
 
 // API Endpoints
 app.get('/api/flights', async (req, res) => {
+  const forceRefresh = req.query.refresh === 'true';
   const now = Date.now();
   
-  // Usar cache si es reciente
-  if (lastUpdate && (now - lastUpdate) < CACHE_DURATION && Object.keys(flightCache).length > 0) {
-    return res.json({
-      flights: Object.values(flightCache),
-      lastUpdate: new Date(lastUpdate).toISOString(),
-      cached: true
+  try {
+    const flightNumbers = ['AR1685', 'AR1484'];
+    const flights = await Promise.all(
+      flightNumbers.map(fn => getFlightInfo(fn, forceRefresh))
+    );
+    
+    // Actualizar lastUpdate solo si obtuvimos datos frescos
+    const hasRealData = flights.some(f => f && f.source !== 'demo' && !f.fromCache);
+    if (hasRealData) {
+      lastUpdate = now;
+    }
+    
+    res.json({
+      flights: flights.filter(Boolean),
+      lastUpdate: lastUpdate ? new Date(lastUpdate).toISOString() : null,
+      apiStatus: {
+        callsToday: apiCallsToday,
+        maxDaily: MAX_DAILY_API_CALLS,
+        remainingToday: MAX_DAILY_API_CALLS - apiCallsToday,
+        cacheDuration: CACHE_DURATION / 60000 + ' minutos',
+        canRefresh: canMakeApiCall()
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching flights:', error);
+    res.status(500).json({ error: 'Error al obtener datos de vuelos' });
+  }
+});
+
+// Endpoint para forzar refresh (usa una llamada de API)
+app.get('/api/flights/refresh', async (req, res) => {
+  if (!canMakeApiCall()) {
+    return res.status(429).json({ 
+      error: 'Límite diario de API alcanzado',
+      remainingToday: 0,
+      nextReset: 'mañana'
     });
   }
   
   try {
     const flightNumbers = ['AR1685', 'AR1484'];
     const flights = await Promise.all(
-      flightNumbers.map(fn => getFlightInfo(fn))
+      flightNumbers.map(fn => getFlightInfo(fn, true))
     );
     
-    flightCache = {};
-    flights.filter(Boolean).forEach(f => {
-      flightCache[f.flight_number] = f;
-    });
-    lastUpdate = now;
+    lastUpdate = Date.now();
     
     res.json({
-      flights: Object.values(flightCache),
+      flights: flights.filter(Boolean),
       lastUpdate: new Date(lastUpdate).toISOString(),
-      cached: false
+      message: 'Datos actualizados desde API',
+      apiStatus: {
+        callsToday: apiCallsToday,
+        remainingToday: MAX_DAILY_API_CALLS - apiCallsToday
+      }
     });
   } catch (error) {
-    console.error('Error fetching flights:', error);
-    res.status(500).json({ error: 'Error al obtener datos de vuelos' });
+    console.error('Error refreshing flights:', error);
+    res.status(500).json({ error: 'Error al actualizar vuelos' });
   }
+});
+
+// Endpoint de estadísticas de API
+app.get('/api/stats', (req, res) => {
+  res.json({
+    apiStats,
+    today: {
+      calls: apiCallsToday,
+      remaining: MAX_DAILY_API_CALLS - apiCallsToday,
+      limit: MAX_DAILY_API_CALLS
+    },
+    cache: {
+      duration: CACHE_DURATION / 60000 + ' minutos',
+      flights: Object.keys(flightCache).length,
+      lastUpdate: lastUpdate ? new Date(lastUpdate).toISOString() : null
+    },
+    config: {
+      aviationstack: AVIATIONSTACK_KEY ? 'configured' : 'not configured',
+      airlabs: AIRLABS_KEY ? 'configured' : 'not configured',
+      monthlyLimit: 100,
+      recommendedDaily: MAX_DAILY_API_CALLS
+    }
+  });
 });
 
 app.get('/api/flight/:flightNumber', async (req, res) => {

@@ -96,6 +96,26 @@ body {
   cursor: pointer;
 }
 
+/* API Status */
+.api-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.api-status-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: white;
+}
+
+.api-warning {
+  font-size: 0.75rem;
+  color: #fbbf24;
+}
+
 /* Main content */
 .main {
   flex: 1;

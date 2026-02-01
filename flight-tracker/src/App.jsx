@@ -230,29 +230,62 @@ function FlightCard({ flight }) {
   )
 }
 
+function ApiStatus({ status }) {
+  if (!status) return null
+  
+  const getStatusColor = () => {
+    if (status.remainingToday === 0) return '#ef4444'
+    if (status.remainingToday <= 1) return '#f59e0b'
+    return '#22c55e'
+  }
+  
+  return (
+    <div className="api-status">
+      <div className="api-status-badge" style={{ backgroundColor: getStatusColor() }}>
+        <span>API: {status.remainingToday}/{status.maxDaily} hoy</span>
+      </div>
+      {status.remainingToday === 0 && (
+        <span className="api-warning">⚠️ Límite alcanzado - usando cache</span>
+      )}
+    </div>
+  )
+}
+
 function App() {
   const [flights, setFlights] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastUpdate, setLastUpdate] = useState(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [apiStatus, setApiStatus] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
   
   // Estado para noticias
   const [news, setNews] = useState([])
   const [newsLoading, setNewsLoading] = useState(true)
 
-  const fetchFlights = async () => {
+  const fetchFlights = async (forceRefresh = false) => {
+    if (forceRefresh) setRefreshing(true)
     try {
-      const response = await fetch('/api/flights')
-      if (!response.ok) throw new Error('Error al cargar vuelos')
+      const url = forceRefresh ? '/api/flights/refresh' : '/api/flights'
+      const response = await fetch(url)
+      if (!response.ok) {
+        if (response.status === 429) {
+          setError('Límite diario de API alcanzado')
+          return
+        }
+        throw new Error('Error al cargar vuelos')
+      }
       const data = await response.json()
       setFlights(data.flights || [])
+      setApiStatus(data.apiStatus)
       setLastUpdate(new Date())
       setError(null)
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -275,14 +308,24 @@ function App() {
     fetchNews()
     
     if (autoRefresh) {
-      const flightInterval = setInterval(fetchFlights, 30000) // Vuelos cada 30 segundos
-      const newsInterval = setInterval(fetchNews, 5 * 60000) // Noticias cada 5 minutos
+      // Vuelos: refrescar cada 5 minutos (usa cache, no consume API)
+      const flightInterval = setInterval(() => fetchFlights(false), 5 * 60000)
+      // Noticias: cada 5 minutos
+      const newsInterval = setInterval(fetchNews, 5 * 60000)
       return () => {
         clearInterval(flightInterval)
         clearInterval(newsInterval)
       }
     }
   }, [autoRefresh])
+  
+  const handleForceRefresh = () => {
+    if (apiStatus && apiStatus.remainingToday === 0) {
+      setError('Límite diario alcanzado. Intenta mañana.')
+      return
+    }
+    fetchFlights(true)
+  }
 
   return (
     <div className="app">
@@ -295,12 +338,14 @@ function App() {
           <p className="subtitle">Aerolíneas Argentinas - Estado en tiempo real</p>
         </div>
         <div className="header-controls">
+          <ApiStatus status={apiStatus} />
           <button 
-            onClick={fetchFlights} 
+            onClick={handleForceRefresh} 
             className="refresh-btn"
-            disabled={loading}
+            disabled={loading || refreshing || (apiStatus && apiStatus.remainingToday === 0)}
+            title={apiStatus?.remainingToday === 0 ? 'Límite diario alcanzado' : 'Actualizar desde API (consume 1 llamada)'}
           >
-            {loading ? '⏳' : '🔄'} Actualizar
+            {refreshing ? '⏳' : '🔄'} {apiStatus?.remainingToday === 0 ? 'Sin cuota' : 'Actualizar'}
           </button>
           <label className="auto-refresh">
             <input 
@@ -308,7 +353,7 @@ function App() {
               checked={autoRefresh} 
               onChange={(e) => setAutoRefresh(e.target.checked)}
             />
-            Auto-refresh
+            Auto (cache)
           </label>
         </div>
       </header>
