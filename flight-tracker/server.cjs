@@ -1,14 +1,21 @@
 /**
  * Backend para Flight Tracker - AR 1685 y AR 1484
  * Consulta APIs de vuelos en tiempo real
+ * Incluye seguimiento de noticias sobre paros
  */
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
+const Parser = require('rss-parser');
 
 const app = express();
 const PORT = 5000;
+const rssParser = new Parser({
+  customFields: {
+    item: ['source']
+  }
+});
 
 app.use(cors());
 app.use(express.json());
@@ -300,6 +307,185 @@ app.get('/api/health', (req, res) => {
       aviationstack: AVIATIONSTACK_KEY ? 'configured' : 'not configured'
     }
   });
+});
+
+// ============== NOTICIAS SOBRE PAROS ==============
+
+// Cache para noticias
+let newsCache = [];
+let newsLastUpdate = null;
+const NEWS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+
+// Keywords para buscar noticias relevantes
+const NEWS_KEYWORDS = [
+  'paro ATE',
+  'paro aeropuertos argentina',
+  'huelga aerolineas argentinas',
+  'paro aeronavegantes',
+  'paro APLA',
+  'paro pilotos argentina',
+  'cancelacion vuelos argentina',
+  'demora vuelos ezeiza',
+  'paro trabajadores aereos'
+];
+
+/**
+ * Busca noticias en Google News RSS
+ */
+async function searchGoogleNews(query) {
+  try {
+    const encodedQuery = encodeURIComponent(query);
+    const url = `https://news.google.com/rss/search?q=${encodedQuery}&hl=es-419&gl=AR&ceid=AR:es-419`;
+    
+    const feed = await rssParser.parseURL(url);
+    
+    return feed.items.slice(0, 5).map(item => ({
+      title: item.title || '',
+      link: item.link || '',
+      pubDate: item.pubDate || '',
+      source: extractSource(item.title),
+      snippet: item.contentSnippet || item.content || '',
+      query: query
+    }));
+  } catch (error) {
+    console.error(`Error fetching news for "${query}":`, error.message);
+    return [];
+  }
+}
+
+/**
+ * Extrae el nombre de la fuente del título de Google News
+ */
+function extractSource(title) {
+  if (!title) return 'Desconocido';
+  const match = title.match(/ - ([^-]+)$/);
+  return match ? match[1].trim() : 'Desconocido';
+}
+
+/**
+ * Limpia el título removiendo la fuente
+ */
+function cleanTitle(title) {
+  if (!title) return '';
+  return title.replace(/ - [^-]+$/, '').trim();
+}
+
+/**
+ * Calcula la relevancia de una noticia
+ */
+function calculateRelevance(news) {
+  const title = news.title.toLowerCase();
+  let score = 0;
+  
+  // Palabras de alta relevancia
+  const highRelevance = ['paro', 'huelga', 'cancelacion', 'cancelan', 'suspenden'];
+  const mediumRelevance = ['demora', 'afecta', 'vuelos', 'aeropuerto', 'aerolineas'];
+  const contextRelevance = ['ate', 'apla', 'ezeiza', 'aeroparque', 'argentina'];
+  
+  highRelevance.forEach(word => {
+    if (title.includes(word)) score += 10;
+  });
+  
+  mediumRelevance.forEach(word => {
+    if (title.includes(word)) score += 5;
+  });
+  
+  contextRelevance.forEach(word => {
+    if (title.includes(word)) score += 3;
+  });
+  
+  // Bonus por fecha reciente
+  const pubDate = new Date(news.pubDate);
+  const now = new Date();
+  const hoursAgo = (now - pubDate) / (1000 * 60 * 60);
+  
+  if (hoursAgo < 6) score += 15;
+  else if (hoursAgo < 24) score += 10;
+  else if (hoursAgo < 48) score += 5;
+  
+  return score;
+}
+
+/**
+ * Obtiene y procesa todas las noticias
+ */
+async function fetchAllNews() {
+  const now = Date.now();
+  
+  // Usar cache si es reciente
+  if (newsLastUpdate && (now - newsLastUpdate) < NEWS_CACHE_DURATION && newsCache.length > 0) {
+    return { news: newsCache, cached: true, lastUpdate: new Date(newsLastUpdate).toISOString() };
+  }
+  
+  console.log('Fetching news from Google News RSS...');
+  
+  // Buscar con diferentes keywords
+  const allResults = await Promise.all(
+    NEWS_KEYWORDS.slice(0, 4).map(keyword => searchGoogleNews(keyword))
+  );
+  
+  // Aplanar y deduplicar por título
+  const seenTitles = new Set();
+  let allNews = [];
+  
+  allResults.flat().forEach(news => {
+    const cleanedTitle = cleanTitle(news.title);
+    if (!seenTitles.has(cleanedTitle) && cleanedTitle.length > 10) {
+      seenTitles.add(cleanedTitle);
+      allNews.push({
+        ...news,
+        title: cleanedTitle,
+        relevance: calculateRelevance({ ...news, title: cleanedTitle })
+      });
+    }
+  });
+  
+  // Ordenar por relevancia y fecha
+  allNews.sort((a, b) => {
+    if (b.relevance !== a.relevance) return b.relevance - a.relevance;
+    return new Date(b.pubDate) - new Date(a.pubDate);
+  });
+  
+  // Limitar a las 10 más relevantes
+  newsCache = allNews.slice(0, 10);
+  newsLastUpdate = now;
+  
+  return { 
+    news: newsCache, 
+    cached: false, 
+    lastUpdate: new Date(newsLastUpdate).toISOString(),
+    keywords: NEWS_KEYWORDS
+  };
+}
+
+// Endpoint de noticias
+app.get('/api/news', async (req, res) => {
+  try {
+    const result = await fetchAllNews();
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching news:', error);
+    res.status(500).json({ error: 'Error al obtener noticias', news: [] });
+  }
+});
+
+// Endpoint para buscar noticias con query personalizado
+app.get('/api/news/search', async (req, res) => {
+  const query = req.query.q;
+  if (!query) {
+    return res.status(400).json({ error: 'Se requiere parámetro q' });
+  }
+  
+  try {
+    const news = await searchGoogleNews(query);
+    res.json({ 
+      news: news.map(n => ({ ...n, title: cleanTitle(n.title) })),
+      query 
+    });
+  } catch (error) {
+    console.error('Error searching news:', error);
+    res.status(500).json({ error: 'Error al buscar noticias' });
+  }
 });
 
 // Serve React app for all other routes

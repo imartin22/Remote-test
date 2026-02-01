@@ -1,6 +1,25 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 
+function formatRelativeTime(isoString) {
+  if (!isoString) return ''
+  try {
+    const date = new Date(isoString)
+    const now = new Date()
+    const diffMs = now - date
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+    
+    if (diffMins < 60) return `hace ${diffMins} min`
+    if (diffHours < 24) return `hace ${diffHours}h`
+    if (diffDays < 7) return `hace ${diffDays}d`
+    return date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
+  } catch {
+    return ''
+  }
+}
+
 function formatTime(isoString) {
   if (!isoString || isoString === 'N/A') return '-'
   try {
@@ -49,6 +68,80 @@ function getStatusIcon(status) {
     'Despegó': '🛫'
   }
   return icons[status] || '❓'
+}
+
+function NewsCard({ news }) {
+  if (!news) return null
+  
+  const getRelevanceColor = (relevance) => {
+    if (relevance >= 20) return '#ef4444' // Rojo - muy relevante
+    if (relevance >= 10) return '#f59e0b' // Amarillo - relevante
+    return '#6b7280' // Gris - normal
+  }
+  
+  const getRelevanceLabel = (relevance) => {
+    if (relevance >= 20) return '🚨 Urgente'
+    if (relevance >= 10) return '⚠️ Importante'
+    return '📰 Info'
+  }
+  
+  return (
+    <a 
+      href={news.link} 
+      target="_blank" 
+      rel="noopener noreferrer"
+      className="news-card"
+    >
+      <div className="news-header">
+        <span 
+          className="news-relevance"
+          style={{ backgroundColor: getRelevanceColor(news.relevance) }}
+        >
+          {getRelevanceLabel(news.relevance)}
+        </span>
+        <span className="news-time">{formatRelativeTime(news.pubDate)}</span>
+      </div>
+      <h3 className="news-title">{news.title}</h3>
+      <div className="news-footer">
+        <span className="news-source">{news.source}</span>
+        <span className="news-link-icon">↗</span>
+      </div>
+    </a>
+  )
+}
+
+function NewsSection({ news, loading, onRefresh }) {
+  return (
+    <div className="news-section">
+      <div className="news-section-header">
+        <h2>
+          <span className="section-icon">📢</span>
+          Alertas de Paros y Disrupciones
+        </h2>
+        <button onClick={onRefresh} className="refresh-btn-small" disabled={loading}>
+          {loading ? '⏳' : '🔄'}
+        </button>
+      </div>
+      
+      <p className="news-subtitle">
+        Monitoreando: paro ATE, huelgas aeropuertos, cancelaciones
+      </p>
+      
+      {loading && news.length === 0 ? (
+        <div className="news-loading">Buscando noticias...</div>
+      ) : news.length === 0 ? (
+        <div className="news-empty">
+          ✅ No hay alertas de paros activas
+        </div>
+      ) : (
+        <div className="news-grid">
+          {news.map((item, index) => (
+            <NewsCard key={index} news={item} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function FlightCard({ flight }) {
@@ -143,6 +236,10 @@ function App() {
   const [error, setError] = useState(null)
   const [lastUpdate, setLastUpdate] = useState(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
+  
+  // Estado para noticias
+  const [news, setNews] = useState([])
+  const [newsLoading, setNewsLoading] = useState(true)
 
   const fetchFlights = async () => {
     try {
@@ -159,12 +256,31 @@ function App() {
     }
   }
 
+  const fetchNews = async () => {
+    setNewsLoading(true)
+    try {
+      const response = await fetch('/api/news')
+      if (!response.ok) throw new Error('Error al cargar noticias')
+      const data = await response.json()
+      setNews(data.news || [])
+    } catch (err) {
+      console.error('Error fetching news:', err)
+    } finally {
+      setNewsLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchFlights()
+    fetchNews()
     
     if (autoRefresh) {
-      const interval = setInterval(fetchFlights, 30000) // Actualizar cada 30 segundos
-      return () => clearInterval(interval)
+      const flightInterval = setInterval(fetchFlights, 30000) // Vuelos cada 30 segundos
+      const newsInterval = setInterval(fetchNews, 5 * 60000) // Noticias cada 5 minutos
+      return () => {
+        clearInterval(flightInterval)
+        clearInterval(newsInterval)
+      }
     }
   }, [autoRefresh])
 
@@ -223,6 +339,12 @@ function App() {
             {autoRefresh && <span className="auto-badge">Auto-refresh activo</span>}
           </div>
         )}
+        
+        <NewsSection 
+          news={news} 
+          loading={newsLoading} 
+          onRefresh={fetchNews}
+        />
       </main>
 
       <footer className="footer">

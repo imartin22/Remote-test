@@ -380,6 +380,137 @@ body {
   font-size: 0.8rem;
 }
 
+/* ============== NEWS SECTION ============== */
+.news-section {
+  margin-top: 40px;
+  padding-top: 30px;
+  border-top: 1px solid var(--border);
+}
+
+.news-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.news-section-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.25rem;
+}
+
+.section-icon {
+  font-size: 1.5rem;
+}
+
+.refresh-btn-small {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+.refresh-btn-small:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.refresh-btn-small:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.news-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: 20px;
+}
+
+.news-loading,
+.news-empty {
+  text-align: center;
+  padding: 30px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border-radius: 12px;
+}
+
+.news-empty {
+  color: #22c55e;
+}
+
+.news-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.news-card {
+  display: block;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s;
+}
+
+.news-card:hover {
+  border-color: var(--accent);
+  transform: translateX(4px);
+  background: var(--bg-secondary);
+}
+
+.news-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.news-relevance {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+}
+
+.news-time {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.news-title {
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.news-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.news-source {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.news-link-icon {
+  color: var(--accent);
+  font-size: 1rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .header {
