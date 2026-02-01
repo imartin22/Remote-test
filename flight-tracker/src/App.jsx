@@ -493,7 +493,7 @@ function App() {
   const fetchFlights = async (forceRefresh = false) => {
     if (forceRefresh) setRefreshing(true)
     try {
-      const url = forceRefresh ? '/api/flights/refresh' : '/api/flights'
+      const url = '/api/flights'
       const response = await fetch(url)
       if (!response.ok) {
         if (response.status === 429) {
