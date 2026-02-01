@@ -151,8 +151,14 @@ function ApiStatus({ status }) {
 }
 
 function YourFlightsSection({ flights, apiFlights }) {
+  // Solo matchear con vuelos del 2 de febrero (tu fecha de viaje)
   const getFlightData = (flightNumber) => {
-    return apiFlights.find(f => f.flight_number === flightNumber)
+    return apiFlights.find(f => {
+      if (f.flight_number !== flightNumber) return false
+      // Verificar que sea del 2 de febrero
+      const flightDate = f.flight_date || (f.departure?.scheduled ? f.departure.scheduled.split('T')[0] : null)
+      return flightDate === '2026-02-02'
+    })
   }
   
   return (
@@ -305,9 +311,10 @@ function FlightTable({ flights, routeName, routeIcon }) {
               style={isYourFlight ? { borderColor: 'var(--blue-500)', borderWidth: '2px' } : {}}
             >
               <div className="flight-card-header">
-                <div>
+                <div className="flight-card-info">
                   <span className="flight-card-number">{flight.flight_number}</span>
-                  {isYourFlight && <span className="your-flight-tag">Tu vuelo</span>}
+                  <span className="flight-card-date">{formatDate(flight.departure?.scheduled)}</span>
+                  {isYourFlight && flight.flight_date === '2026-02-02' && <span className="your-flight-tag">Tu vuelo</span>}
                 </div>
                 <span className={`status-badge status-${statusClass}`}>
                   <StatusIcon status={flight.status} /> {flight.status}
@@ -356,11 +363,13 @@ function FlightTable({ flights, routeName, routeIcon }) {
               const statusClass = getStatusClass(flight.status)
               const isYourFlight = YOUR_FLIGHTS.some(yf => yf.flight_number === flight.flight_number)
               
+              const isYourFlightToday = isYourFlight && flight.flight_date === '2026-02-02'
+              
               return (
-                <tr key={`row-${flight.flight_number}-${index}`} style={isYourFlight ? { background: '#eff6ff' } : {}}>
+                <tr key={`row-${flight.flight_number}-${index}`} style={isYourFlightToday ? { background: '#eff6ff' } : {}}>
                   <td>
                     <span className="flight-number">{flight.flight_number}</span>
-                    {isYourFlight && <span className="your-flight-tag">Tu vuelo</span>}
+                    {isYourFlightToday && <span className="your-flight-tag">Tu vuelo</span>}
                   </td>
                   <td>{formatDate(flight.departure?.scheduled)}</td>
                   <td>

@@ -552,12 +552,24 @@ svg {
   margin-bottom: 12px;
 }
 
+.flight-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .flight-card-number {
   font-size: 17px;
   font-weight: 700;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
+}
+
+.flight-card-date {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 .flight-card-route {
