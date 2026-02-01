@@ -6,14 +6,22 @@ const YOUR_FLIGHTS = [
   { 
     flight_number: 'AR1685', 
     route: 'BRC → AEP',
+    origin: 'BRC',
+    originName: 'Bariloche',
+    destination: 'AEP',
+    destinationName: 'Aeroparque',
     routeName: 'Bariloche → Aeroparque',
-    date: '2 Feb 2026'
+    date: '2 Feb'
   },
   { 
     flight_number: 'AR1484', 
     route: 'AEP → TUC',
+    origin: 'AEP',
+    originName: 'Aeroparque',
+    destination: 'TUC',
+    destinationName: 'Tucumán',
     routeName: 'Aeroparque → Tucumán',
-    date: '2 Feb 2026'
+    date: '2 Feb'
   }
 ]
 
@@ -94,8 +102,12 @@ function ApiStatus({ status }) {
   }
   
   return (
-    <div className="api-status">
-      <div className="api-status-badge" style={{ backgroundColor: getStatusColor() }}>
+    <div className="api-status" role="status" aria-live="polite">
+      <div 
+        className="api-status-badge" 
+        style={{ backgroundColor: getStatusColor() }}
+        aria-label={`API calls remaining: ${status.remainingToday} of ${status.maxDaily}`}
+      >
         API: {status.remainingToday}/{status.maxDaily}
       </div>
     </div>
@@ -109,8 +121,8 @@ function YourFlightsSection({ flights, apiFlights }) {
   }
   
   return (
-    <div className="your-flights-section">
-      <h2>✨ Tus Vuelos</h2>
+    <section className="your-flights-section" aria-labelledby="your-flights-heading">
+      <h2 id="your-flights-heading" className="your-flights-header">✨ Tus Vuelos</h2>
       <div className="table-wrapper">
         <table className="your-flights-table">
           <thead>
@@ -157,33 +169,34 @@ function YourFlightsSection({ flights, apiFlights }) {
                 </tr>
               )
             })}
-          </tbody>
+            </tbody>
         </table>
       </div>
-    </div>
+    </section>
   )
 }
 
 function FlightTable({ flights, routeName, routeEmoji }) {
+  const sectionId = routeName.replace(/\s+/g, '-').toLowerCase()
   if (flights.length === 0) {
     return (
-      <div className="route-section">
+      <section className="route-section" aria-labelledby={sectionId}>
         <div className="route-header">
-          <h3 className="route-title">
-            <span>{routeEmoji}</span> {routeName}
+          <h3 id={sectionId} className="route-title">
+            <span aria-hidden="true">{routeEmoji}</span> {routeName}
           </h3>
           <span className="route-count">0 vuelos</span>
         </div>
         <p className="no-route-flights">No hay vuelos cargados aún para esta ruta</p>
-      </div>
+      </section>
     )
   }
   
   return (
-    <div className="route-section">
+    <section className="route-section" aria-labelledby={sectionId}>
       <div className="route-header">
-        <h3 className="route-title">
-          <span>{routeEmoji}</span> {routeName}
+        <h3 id={sectionId} className="route-title">
+          <span aria-hidden="true">{routeEmoji}</span> {routeName}
         </h3>
         <span className="route-count">{flights.length} vuelos</span>
       </div>
@@ -240,7 +253,7 @@ function FlightTable({ flights, routeName, routeEmoji }) {
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   )
 }
 
@@ -280,10 +293,15 @@ function NewsSection({ news, loading, onRefresh }) {
     <div className="news-section">
       <div className="news-section-header">
         <h2>
-          <span className="section-icon">📢</span>
+          <span className="section-icon" aria-hidden="true">📢</span>
           Alertas de Paros
         </h2>
-        <button onClick={onRefresh} className="refresh-btn-small" disabled={loading}>
+        <button 
+          onClick={onRefresh} 
+          className="refresh-btn-small" 
+          disabled={loading}
+          aria-label="Actualizar noticias"
+        >
           {loading ? '⏳' : '🔄'}
         </button>
       </div>
@@ -293,7 +311,7 @@ function NewsSection({ news, loading, onRefresh }) {
       </p>
       
       {loading && news.length === 0 ? (
-        <div className="news-loading">Buscando noticias...</div>
+        <div className="news-loading" role="status" aria-live="polite">Buscando noticias…</div>
       ) : news.length === 0 ? (
         <div className="news-empty">
           ✅ No hay alertas de paros activas
@@ -401,8 +419,9 @@ function App() {
             onClick={handleForceRefresh} 
             className="refresh-btn"
             disabled={loading || refreshing || (apiStatus && apiStatus.remainingToday === 0)}
+            aria-label="Actualizar datos de vuelos"
           >
-            {refreshing ? '⏳ Actualizando...' : '🔄 Actualizar'}
+            {refreshing ? '⏳ Actualizando…' : '🔄 Actualizar'}
           </button>
           <label className="auto-refresh">
             <input 
@@ -426,9 +445,9 @@ function App() {
         <YourFlightsSection flights={YOUR_FLIGHTS} apiFlights={flights} />
         
         {loading && flights.length === 0 ? (
-          <div className="loading">
-            <div className="loading-spinner">✈️</div>
-            <p>Cargando información de vuelos...</p>
+          <div className="loading" role="status" aria-live="polite">
+            <div className="loading-spinner" aria-hidden="true">✈️</div>
+            <p>Cargando información de vuelos…</p>
           </div>
         ) : (
           <>
